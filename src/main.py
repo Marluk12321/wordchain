@@ -1,6 +1,7 @@
 import sys
 from typing import List
 
+import graph
 import parser
 
 
@@ -19,6 +20,8 @@ def main(args: List[str]):
     except parser.ParserError as e:
         print(e)
         return
+
+    word_graph = graph.Graph(words)
 
 
 if __name__ == '__main__':
