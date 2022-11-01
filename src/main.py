@@ -1,8 +1,8 @@
 import sys
 from typing import List
 
-import graph
-import parser
+import wordchain.graph as graph
+import wordchain.parser as parser
 
 
 def main(args: List[str]):
