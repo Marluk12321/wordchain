@@ -1,16 +1,18 @@
 class Node:
-    __slots__ = 'value', 'transitions', '_hidden_transitions'
+    __slots__ = 'value', 'transitions', '_hidden_transitions', '_hash'
     value: str
     transitions: dict[str, 'Node']
     _hidden_transitions: dict[str, 'Node']
+    _hash: int
 
     def __init__(self, value: str):
         self.value = value
         self.transitions = {}
         self._hidden_transitions = {}
+        self._hash = hash(value)
 
     def __hash__(self) -> int:
-        return hash(self.value)
+        return self._hash
 
     def __eq__(self, other) -> bool:
         return (isinstance(other, Node)
