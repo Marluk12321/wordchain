@@ -1,11 +1,13 @@
 class Node:
-    __slots__ = 'value', 'transitions'
+    __slots__ = 'value', 'transitions', '_hidden_transitions'
     value: str
     transitions: dict[str, 'Node']
+    _hidden_transitions: dict[str, 'Node']
 
     def __init__(self, value: str):
         self.value = value
         self.transitions = {}
+        self._hidden_transitions = {}
 
     def __hash__(self) -> int:
         return hash(self.value)
@@ -13,6 +15,15 @@ class Node:
     def __eq__(self, other) -> bool:
         return (isinstance(other, Node)
                 and self.value == other.value)
+
+    def pop(self, word: str) -> 'Node':
+        node = self.transitions.pop(word)
+        self._hidden_transitions[word] = node
+        return node
+
+    def restore_transitions(self):
+        self.transitions.update(self._hidden_transitions)
+        self._hidden_transitions.clear()
 
 
 class Graph:
@@ -50,3 +61,8 @@ class Graph:
         self._connect_to_start(node)
         self._connect_to_end(node)
         return node
+
+    def restore_transitions(self):
+        self.start.restore_transitions()
+        for node in self.start.transitions.values():
+            node.restore_transitions()

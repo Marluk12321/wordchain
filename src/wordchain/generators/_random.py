@@ -13,10 +13,8 @@ class RandomGenerator(_base.StepByStepGenerator):
         self._repeats = repeats
         super().__init__()
 
-    def _pick_next_word(self, node: Node) -> (str | None):
-        unseen_words = tuple(self._iter_unseen_words(node))
-        return (random.choice(unseen_words) if len(unseen_words) > 0
-                else None)
+    def _pick_next_word(self, graph: Graph, node: Node) -> str:
+        return random.choice(tuple(node.transitions))
 
     def generate(self, graph: Graph) -> tuple[str] | tuple[()]:
         best_chain: tuple[str] | tuple[()] = ()
@@ -24,4 +22,5 @@ class RandomGenerator(_base.StepByStepGenerator):
             chain = super().generate(graph)
             if len(chain) > len(best_chain):
                 best_chain = chain
+            graph.restore_transitions()
         return best_chain
