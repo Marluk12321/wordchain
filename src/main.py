@@ -1,3 +1,4 @@
+import time
 import sys
 from typing import List
 
@@ -23,8 +24,13 @@ def main(args: List[str]):
         return
 
     word_graph = graph.Graph(words)
-    chain = generators.RandomChainGenerator().generate(word_graph)
-    print(f'Chain length: {len(chain)}', end='\n\n')
+    generator = generators.RandomGenerator(repeats=10000)
+    start_time = time.time()
+    chain = generator.generate(word_graph)
+    end_time = time.time()
+    assert len(chain) == len(frozenset(chain))
+    print(f'Finished in {end_time - start_time}s\n'
+          f'Chain length: {len(chain)}', end='\n\n')
 
     while True:
         match input('Display words from chain? (y/n): ').strip().lower():
