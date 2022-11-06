@@ -24,7 +24,8 @@ def main(args: List[str]):
         return
 
     word_graph = graph.Graph(words)
-    generator = generators.RandomGenerator(repeats=10000)
+    # generator = generators.RandomGenerator(repeats=10000)
+    generator = generators.DeterministicIntuitiveGenerator(lookahead_depth=3)
     start_time = time.time()
     chain = generator.generate(word_graph)
     end_time = time.time()

@@ -1,1 +1,2 @@
+from ._deterministicintuitive import DeterministicIntuitiveGenerator
 from ._random import RandomGenerator
