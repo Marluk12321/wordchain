@@ -1,18 +1,19 @@
-from typing import Iterable
+from typing import TYPE_CHECKING
 
-from ..graph import Graph, Node
+if TYPE_CHECKING:
+    from ..graph import Graph, Node
 
 
 class WordChainGenerator:
-    def generate(self, graph: Graph) -> tuple[str]:
+    def generate(self, graph: 'Graph') -> tuple[str]:
         raise NotImplementedError
 
 
 class StepByStepGenerator(WordChainGenerator):
-    def _pick_next_word(self, graph: Graph, node: Node) -> str:
+    def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
         raise NotImplementedError
 
-    def generate(self, graph: Graph) -> tuple[str] | tuple[()]:
+    def generate(self, graph: 'Graph') -> tuple[str]:
         chain: list[str] = []
         node = graph.start
         while node is not graph.end:

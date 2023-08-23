@@ -1,13 +1,12 @@
 import time
 import sys
-from typing import List
 
 import wordchain.generators as generators
 import wordchain.graph as graph
 import wordchain.parser as parser
 
 
-def main(args: List[str]):
+def main(args: list[str]):
     match len(args):
         case 0:
             print('Missing 1 argument: path to the words file')
@@ -26,10 +25,11 @@ def main(args: List[str]):
     word_graph = graph.Graph(words)
     # generator = generators.RandomGenerator(repeats=10000)
     generator = generators.DeterministicIntuitiveGenerator(lookahead_depth=3)
-    start_time = time.time()
+    start_time = time.perf_counter()
     chain = generator.generate(word_graph)
-    end_time = time.time()
+    end_time = time.perf_counter()
     assert len(chain) == len(frozenset(chain))
+    assert all(word1[-2:] == word2[:2] for word1, word2 in zip(chain[:-1], chain[1:]))
     print(f'Finished in {end_time - start_time}s\n'
           f'Chain length: {len(chain)}', end='\n\n')
 
