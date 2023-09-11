@@ -1,5 +1,5 @@
 import pathlib
-from typing import Iterable
+from typing import Iterable, Sequence
 
 
 class ParserError(Exception):
@@ -21,8 +21,11 @@ def _read_words(path: pathlib.Path) -> Iterable[str]:
             yield line
 
 
-def parse_words_file(path: str) -> frozenset[str]:
+def parse_words_file(path: str) -> Sequence[str]:
     path: pathlib.Path = pathlib.Path(path)
     if not path.is_file():
         raise ParserError(f'"{path}" is not a valid path')
-    return frozenset(_read_words(path))
+    words = tuple(_read_words(path))
+    if not len(words) == len(frozenset(words)):
+        raise ParserError(f'"{path}" contains duplicate words')
+    return words
