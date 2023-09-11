@@ -39,8 +39,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
         self._end_count_cache[node] = self._count_cache[node][self._lookahead_depth]
 
     def _populate_caches(self, graph: 'Graph'):
-        for i, node in enumerate(graph.start.transitions.values()):
-            # print(f'preprocessing {i + 1}/{len(graph.start.transitions)}')
+        for node in graph.start.transitions.values():
             for successor in node.transitions.values():
                 self._predecessors[successor].add(node)
             self._calculate_transition_count(node, self._lookahead_depth)
