@@ -78,7 +78,8 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
         transitions_to_successor[successor] -= 1
         if transitions_to_successor[successor] > 0:
             # successor is still reachable via another word
-            self._transitions_at_depth[node][1] -= 1
+            for distance, predecessor in self._iter_nodes_to_update(node, self._lookahead_depth - 1):
+                self._transitions_at_depth[predecessor][distance + 1] -= 1
         else:
             # successor is no longer reachable
             successor_transitions = self._transitions_at_depth[successor]
