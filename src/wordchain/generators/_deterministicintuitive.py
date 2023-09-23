@@ -8,11 +8,13 @@ if TYPE_CHECKING:
 
 
 class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
-    __slots__ = '_lookahead_depth', '_transitions_at_depth', '_transitions_at_max_depth', '_predecessors'
+    __slots__ = ('_lookahead_depth', '_transitions_at_depth', '_transitions_at_max_depth',
+                 '_predecessors', '_transitions_to_successor')
     _lookahead_depth: int
     _transitions_at_depth: dict['Node', dict[int, int]]  # node -> depth -> transition_count
     _transitions_at_max_depth: dict['Node', int]  # node -> transition_count
     _predecessors: dict['Node', set['Node']]  # node -> predecessors
+    _transitions_to_successor: dict['Node', dict['Node', int]]  # node -> successor -> transition_count
 
     def __init__(self, lookahead_depth: int = 1):
         if lookahead_depth < 1:
@@ -21,6 +23,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
         self._transitions_at_depth = collections.defaultdict(lambda: collections.defaultdict(int))
         self._transitions_at_max_depth = {}
         self._predecessors = collections.defaultdict(set)
+        self._transitions_to_successor = collections.defaultdict(lambda: collections.defaultdict(int))
         super().__init__()
 
     def _calculate_transition_count(self, node: 'Node', depth: int) -> int:
@@ -58,24 +61,28 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             node_counts[further_depth] -= unreachable_transitions[relative_depth]
         self._update_transitions_at_max_depth(node)
 
-    def _iter_predecessors(self, node: 'Node', max_distance: int) -> Iterable[tuple[int, 'Node']]:
+    def _iter_nodes_to_update(self, node: 'Node', max_distance: int) -> Iterable[tuple[int, 'Node']]:
         to_process: list[tuple[int, 'Node']] = [(0, node)]
         current_index = 0
         while current_index < len(to_process):
             distance, node = to_process[current_index]
-            current_index += 1
-            if distance > 0:
-                yield distance, node
-            # expand until max distance
-            if distance < max_distance:
+            yield distance, node
+            if distance < max_distance:  # expand until max distance
                 to_process.extend((distance + 1, predecessor) for predecessor in self._predecessors[node])
+            current_index += 1
 
     def _update_cache(self, node: 'Node', removed_word: str):
-        unreachable_successor = node.transitions[removed_word]
-        unreachable_transitions = self._transitions_at_depth[unreachable_successor]
-        self._remove_unreachable_transition_counts(node, 1, unreachable_transitions)
-        for distance, predecessor in self._iter_predecessors(node, self._lookahead_depth - 1):
-            self._remove_unreachable_transition_counts(predecessor, distance + 1, unreachable_transitions)
+        successor = node.transitions[removed_word]
+        transitions_to_successor = self._transitions_to_successor[node]
+        transitions_to_successor[successor] -= 1
+        if transitions_to_successor[successor] > 0:
+            # successor is still reachable via another word
+            self._transitions_at_depth[node][1] -= 1
+        else:
+            # successor is no longer reachable
+            successor_transitions = self._transitions_at_depth[successor]
+            for distance, predecessor in self._iter_nodes_to_update(node, self._lookahead_depth - 1):
+                self._remove_unreachable_transition_counts(predecessor, distance + 1, successor_transitions)
 
     def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
         most_transitions: int = -1
@@ -95,6 +102,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
         self._transitions_at_max_depth.clear()
         self._transitions_at_depth.clear()
         self._predecessors.clear()
+        self._transitions_to_successor.clear()
 
     def generate(self, graph: 'Graph') -> tuple[str]:
         self._populate_caches(graph)
