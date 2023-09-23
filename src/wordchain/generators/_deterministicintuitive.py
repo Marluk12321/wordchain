@@ -8,23 +8,23 @@ if TYPE_CHECKING:
 
 
 class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
-    __slots__ = '_lookahead_depth', '_count_cache', '_end_count_cache', '_predecessors'
+    __slots__ = '_lookahead_depth', '_transitions_at_depth', '_transitions_at_max_depth', '_predecessors'
     _lookahead_depth: int
-    _count_cache: dict['Node', dict[int, int]]  # node -> depth -> transition_count
-    _end_count_cache: dict['Node', int]
-    _predecessors: dict['Node', set['Node']]  # node -> distance -> predecessors
+    _transitions_at_depth: dict['Node', dict[int, int]]  # node -> depth -> transition_count
+    _transitions_at_max_depth: dict['Node', int]  # node -> transition_count
+    _predecessors: dict['Node', set['Node']]  # node -> predecessors
 
     def __init__(self, lookahead_depth: int = 1):
         if lookahead_depth < 1:
             raise ValueError(f'lookahead_depth needs to be > 0, got {lookahead_depth}')
         self._lookahead_depth = lookahead_depth
-        self._count_cache = collections.defaultdict(lambda: collections.defaultdict(int))
-        self._end_count_cache = {}
+        self._transitions_at_depth = collections.defaultdict(lambda: collections.defaultdict(int))
+        self._transitions_at_max_depth = {}
         self._predecessors = collections.defaultdict(set)
         super().__init__()
 
     def _calculate_transition_count(self, node: 'Node', depth: int) -> int:
-        transition_counts = self._count_cache[node]
+        transition_counts = self._transitions_at_depth[node]
         transition_count = transition_counts.get(depth)
         if transition_count is None:
             if depth == 1:
@@ -35,39 +35,46 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             transition_counts[depth] = transition_count
         return transition_count
 
-    def _update_end_count_cache(self, node: 'Node'):
-        self._end_count_cache[node] = self._count_cache[node][self._lookahead_depth]
+    def _update_transitions_at_max_depth(self, node: 'Node'):
+        self._transitions_at_max_depth[node] = self._transitions_at_depth[node][self._lookahead_depth]
 
     def _populate_caches(self, graph: 'Graph'):
         for node in graph.start.transitions.values():
+            self._transitions_to_successor[graph.start][node] += 1
             for successor in node.transitions.values():
                 self._predecessors[successor].add(node)
+                self._transitions_to_successor[node][successor] += 1
             self._calculate_transition_count(node, self._lookahead_depth)
-            self._update_end_count_cache(node)
-        self._end_count_cache[graph.end] = 0
+            self._update_transitions_at_max_depth(node)
+        self._transitions_at_max_depth[graph.end] = 0
 
-    def _reduce_cached_counts(self, node: 'Node', distance: int, reductions: dict[int, int]):
-        node_counts = self._count_cache[node]
-        for depth in range(distance, self._lookahead_depth + 1):
-            reduction = (1 if depth == distance else reductions[depth - distance])
-            node_counts[depth] -= reduction
-        self._update_end_count_cache(node)
+    def _remove_unreachable_transition_counts(self, node: 'Node', unreachable_depth: int,
+                                              unreachable_transitions: dict[int, int]):
+        node_counts = self._transitions_at_depth[node]
+        node_counts[unreachable_depth] -= 1
+        for further_depth in range(unreachable_depth + 1, self._lookahead_depth + 1):
+            relative_depth = further_depth - unreachable_depth
+            node_counts[further_depth] -= unreachable_transitions[relative_depth]
+        self._update_transitions_at_max_depth(node)
 
-    def _iter_predecessors(self, node: 'Node', max_distance) -> Iterable[tuple[int, 'Node']]:
-        to_process: collections.deque[tuple[int, 'Node']] = collections.deque(((0, node),))
-        while len(to_process) > 0:
-            distance, node = to_process.popleft()
+    def _iter_predecessors(self, node: 'Node', max_distance: int) -> Iterable[tuple[int, 'Node']]:
+        to_process: list[tuple[int, 'Node']] = [(0, node)]
+        current_index = 0
+        while current_index < len(to_process):
+            distance, node = to_process[current_index]
+            current_index += 1
             if distance > 0:
                 yield distance, node
+            # expand until max distance
             if distance < max_distance:
                 to_process.extend((distance + 1, predecessor) for predecessor in self._predecessors[node])
 
     def _update_cache(self, node: 'Node', removed_word: str):
-        removed_node = node.transitions[removed_word]
-        removed_counts = self._count_cache[removed_node]
-        self._reduce_cached_counts(node, 1, removed_counts)
+        unreachable_successor = node.transitions[removed_word]
+        unreachable_transitions = self._transitions_at_depth[unreachable_successor]
+        self._remove_unreachable_transition_counts(node, 1, unreachable_transitions)
         for distance, predecessor in self._iter_predecessors(node, self._lookahead_depth - 1):
-            self._reduce_cached_counts(predecessor, distance + 1, removed_counts)
+            self._remove_unreachable_transition_counts(predecessor, distance + 1, unreachable_transitions)
 
     def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
         most_transitions: int = -1
@@ -76,7 +83,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             if len(word) == 2:
                 best_word = word
                 break
-            transition_count = self._end_count_cache[next_node]
+            transition_count = self._transitions_at_max_depth[next_node]
             if transition_count > most_transitions:
                 best_word = word
                 most_transitions = transition_count
@@ -84,8 +91,8 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
         return best_word
 
     def _clear_caches(self):
-        self._end_count_cache.clear()
-        self._count_cache.clear()
+        self._transitions_at_max_depth.clear()
+        self._transitions_at_depth.clear()
         self._predecessors.clear()
 
     def generate(self, graph: 'Graph') -> tuple[str]:
