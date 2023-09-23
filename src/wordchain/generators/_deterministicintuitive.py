@@ -30,8 +30,9 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             if depth == 1:
                 transition_count = len(node.transitions)
             else:
+                unique_successors = frozenset(node.transitions.values())
                 transition_count = sum(self._calculate_transition_count(next_node, depth - 1)
-                                       for next_node in node.transitions.values())
+                                       for next_node in unique_successors)
             transition_counts[depth] = transition_count
         return transition_count
 
