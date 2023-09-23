@@ -44,6 +44,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
 
     def _populate_caches(self, graph: 'Graph'):
         for node in graph.start.transitions.values():
+            self._predecessors[node].add(graph.start)
             self._transitions_to_successor[graph.start][node] += 1
             for successor in node.transitions.values():
                 self._predecessors[successor].add(node)
@@ -83,6 +84,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             successor_transitions = self._transitions_at_depth[successor]
             for distance, predecessor in self._iter_nodes_to_update(node, self._lookahead_depth - 1):
                 self._remove_unreachable_transition_counts(predecessor, distance + 1, successor_transitions)
+            self._predecessors[successor].remove(node)
 
     def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
         most_transitions: int = -1
