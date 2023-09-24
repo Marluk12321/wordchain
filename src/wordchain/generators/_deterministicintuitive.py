@@ -8,11 +8,11 @@ if TYPE_CHECKING:
 
 
 class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
-    __slots__ = ('_lookahead_depth', '_transitions_at_depth', '_transitions_at_max_depth',
+    __slots__ = ('_lookahead_depth', '_transitions_at_depth', '_score',
                  '_predecessors', '_transitions_to_successor')
     _lookahead_depth: int
     _transitions_at_depth: dict['Node', dict[int, int]]  # node -> depth -> transition_count
-    _transitions_at_max_depth: dict['Node', int]  # node -> transition_count
+    _score: dict['Node', float]  # node -> score
     _predecessors: dict['Node', set['Node']]  # node -> predecessors
     _transitions_to_successor: dict['Node', dict['Node', int]]  # node -> successor -> transition_count
 
@@ -21,7 +21,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             raise ValueError(f'lookahead_depth needs to be > 0, got {lookahead_depth}')
         self._lookahead_depth = lookahead_depth
         self._transitions_at_depth = collections.defaultdict(lambda: collections.defaultdict(int))
-        self._transitions_at_max_depth = {}
+        self._score = {}
         self._predecessors = collections.defaultdict(set)
         self._transitions_to_successor = collections.defaultdict(lambda: collections.defaultdict(int))
         super().__init__()
@@ -39,8 +39,13 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             transition_counts[depth] = transition_count
         return transition_count
 
-    def _update_transitions_at_max_depth(self, node: 'Node'):
-        self._transitions_at_max_depth[node] = self._transitions_at_depth[node][self._lookahead_depth]
+    def _update_score(self, node: 'Node'):
+        transition_counts = self._transitions_at_depth[node]
+        score = 0
+        for depth, count in transition_counts.items():
+            if count > 0:
+                score = depth * count
+        self._score[node] = score
 
     def _populate_caches(self, graph: 'Graph'):
         for node in graph.start.transitions.values():
@@ -50,8 +55,8 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
                 self._predecessors[successor].add(node)
                 self._transitions_to_successor[node][successor] += 1
             self._calculate_transition_count(node, self._lookahead_depth)
-            self._update_transitions_at_max_depth(node)
-        self._transitions_at_max_depth[graph.end] = 0
+            self._update_score(node)
+        self._score[graph.end] = 0
 
     def _remove_unreachable_transition_counts(self, node: 'Node', unreachable_depth: int,
                                               unreachable_transitions: dict[int, int]):
@@ -60,7 +65,7 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
         for further_depth in range(unreachable_depth + 1, self._lookahead_depth + 1):
             relative_depth = further_depth - unreachable_depth
             node_counts[further_depth] -= unreachable_transitions[relative_depth]
-        self._update_transitions_at_max_depth(node)
+        self._update_score(node)
 
     def _iter_nodes_to_update(self, node: 'Node', max_distance: int) -> Iterable[tuple[int, 'Node']]:
         to_process: list[tuple[int, 'Node']] = [(0, node)]
@@ -88,21 +93,21 @@ class DeterministicIntuitiveGenerator(_base.StepByStepGenerator):
             self._predecessors[successor].remove(node)
 
     def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
-        most_transitions: int = -1
+        best_score: float = -1.0
         best_word: str | None = None
         for word, next_node in node.transitions.items():
             if len(word) == 2:
                 best_word = word
                 break
-            transition_count = self._transitions_at_max_depth[next_node]
-            if transition_count > most_transitions:
+            score = self._score[next_node]
+            if score > best_score:
                 best_word = word
-                most_transitions = transition_count
+                best_score = score
         self._update_cache(node, best_word)
         return best_word
 
     def _clear_caches(self):
-        self._transitions_at_max_depth.clear()
+        self._score.clear()
         self._transitions_at_depth.clear()
         self._predecessors.clear()
         self._transitions_to_successor.clear()
