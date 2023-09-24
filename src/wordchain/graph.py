@@ -74,3 +74,14 @@ class Graph:
         self.start.restore_transitions()
         for node in self.start.transitions.values():
             node.restore_transitions()
+
+    def make_checkpoint(self) -> 'Graph':
+        checkpoint = Graph(())
+        checkpoint_nodes: dict[str, Node] = {node.value: checkpoint._make_node(node.value)
+                                             for node in self.start.transitions.values()}
+        for node in self.start.transitions.values():
+            checkpoint_node = checkpoint_nodes[node.value]
+            checkpoint_node.transitions.update({word: checkpoint_nodes[word[-2:]]
+                                                for word, successor in node.transitions.items()
+                                                if successor is not self.end})
+        return checkpoint
