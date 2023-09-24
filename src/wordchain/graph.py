@@ -21,6 +21,9 @@ class Node:
         return (isinstance(other, Node)
                 and self.value == other.value)
 
+    def __repr__(self):
+        return f'<{type(self).__name__}[{id(self):#x}] value={repr(self.value)}>'
+
     def pop(self, word: str) -> 'Node':
         node = self.transitions.pop(word)
         self._hidden_transitions[word] = node
