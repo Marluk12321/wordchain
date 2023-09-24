@@ -23,7 +23,7 @@ def main(args: list[str]):
         return
 
     word_graph = graph.Graph(words)
-    # generator = generators.RandomGenerator(repeats=10000)
+    # generator = generators.Repeater(generators.RandomGenerator(), repeats=10000)
     generator = generators.DeterministicIntuitiveGenerator(lookahead_depth=3)
     start_time = time.perf_counter()
     chain = generator.generate(word_graph)
