@@ -22,5 +22,5 @@ class Repeater(_base.WordChainGenerator):
             chain = self._inner.generate(graph)
             if len(chain) > len(best_chain):
                 best_chain = chain
-            graph.restore_transitions()
+            graph.reset()
         return best_chain

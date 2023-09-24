@@ -29,7 +29,7 @@ class Node:
         self._hidden_transitions[word] = node
         return node
 
-    def restore_transitions(self):
+    def reset(self):
         self.transitions.update(self._hidden_transitions)
         self._hidden_transitions.clear()
 
@@ -70,10 +70,10 @@ class Graph:
         self._connect_to_end(node)
         return node
 
-    def restore_transitions(self):
-        self.start.restore_transitions()
+    def reset(self):
+        self.start.reset()
         for node in self.start.transitions.values():
-            node.restore_transitions()
+            node.reset()
 
     def make_checkpoint(self) -> 'Graph':
         checkpoint = Graph(())
