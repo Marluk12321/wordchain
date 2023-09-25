@@ -1,3 +1,3 @@
-from ._bestscore import BestScoreGenerator
-from ._random import RandomGenerator
-from ._repeat import Repeater
+from ._bestscore import *
+from ._random import *
+from ._repeat import *

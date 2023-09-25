@@ -7,6 +7,9 @@ if TYPE_CHECKING:
     from ..graph import Graph, Node
 
 
+__all__ = 'BestScoreGenerator',
+
+
 class BestScoreGenerator(_base.StepByStepGenerator):
     __slots__ = '_evaluator',
     _evaluator: 'Evaluator'

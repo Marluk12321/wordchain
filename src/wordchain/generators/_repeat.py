@@ -6,6 +6,9 @@ if TYPE_CHECKING:
     from ..graph import Graph
 
 
+__all__ = 'Repeater',
+
+
 class Repeater(_base.WordChainGenerator):
     __slots__ = '_inner', '_repeats',
     _inner: _base.WordChainGenerator
