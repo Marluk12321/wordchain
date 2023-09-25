@@ -39,6 +39,7 @@ class WeightedRandomGenerator(_base.StepByStepGenerator):
         non_end_scores: list[float | int] = []
         for word, next_node in node.transitions.items():
             if word == node.value:
+                self._evaluator.remove_word(node, word)
                 return word
             if next_node is graph.end:
                 end_word = word
@@ -47,6 +48,7 @@ class WeightedRandomGenerator(_base.StepByStepGenerator):
                 non_end_scores.append(self._evaluator.get_score(next_node))
         chosen_word = (random.choices(non_end_words, weights=non_end_scores)[0]
                        if len(non_end_words) > 0 else end_word)
+        self._evaluator.remove_word(node, chosen_word)
         return chosen_word
 
     def generate(self, graph: 'Graph') -> tuple[str]:
