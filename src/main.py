@@ -1,6 +1,7 @@
 import time
 import sys
 
+import wordchain.evaluators as evaluators
 import wordchain.generators as generators
 import wordchain.graph as graph
 import wordchain.parser as parser
@@ -24,7 +25,7 @@ def main(args: list[str]):
 
     word_graph = graph.Graph(words)
     # generator = generators.Repeater(generators.RandomGenerator(), repeats=10000)
-    generator = generators.DeterministicIntuitiveGenerator(lookahead_depth=3)
+    generator = generators.BestScoreGenerator(evaluators.IntuitiveEvaluator(lookahead_depth=3))
     start_time = time.perf_counter()
     chain = generator.generate(word_graph)
     end_time = time.perf_counter()
