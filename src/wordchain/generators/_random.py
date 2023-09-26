@@ -13,11 +13,11 @@ __all__ = 'RandomGenerator', 'WeightedRandomGenerator'
 
 class RandomGenerator(_base.StepByStepGenerator):
     def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
+        if node.value in node.transitions:
+            return node.value
         end_word: str | None = None
         non_end_words: list[str] = []
         for word, next_node in node.transitions.items():
-            if word == node.value:
-                return word
             if next_node is graph.end:
                 end_word = word
             else:
@@ -34,13 +34,13 @@ class WeightedRandomGenerator(_base.StepByStepGenerator):
         super().__init__()
 
     def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
+        if node.value in node.transitions:
+            self._evaluator.remove_word(node, node.value)
+            return node.value
         end_word: str | None = None
         non_end_words: list[str] = []
         non_end_scores: list[float | int] = []
         for word, next_node in node.transitions.items():
-            if word == node.value:
-                self._evaluator.remove_word(node, word)
-                return word
             if next_node is graph.end:
                 end_word = word
             else:
