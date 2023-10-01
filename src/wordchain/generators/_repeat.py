@@ -15,6 +15,8 @@ class Repeater(_base.WordChainGenerator):
     _repeats: int
 
     def __init__(self, inner_generator: _base.WordChainGenerator, repeats: int):
+        if repeats < 1:
+            raise ValueError(f'repeats need to be > 0, got {repeats}')
         self._inner = inner_generator
         self._repeats = repeats
         super().__init__()
