@@ -1,26 +1,17 @@
 from typing import TYPE_CHECKING
 
-from . import _base
+from . import _evaluated
 
 if TYPE_CHECKING:
-    from ..evaluators import Evaluator
     from ..graph import Graph, Node
 
 
 __all__ = 'BestScoreGenerator',
 
 
-class BestScoreGenerator(_base.StepByStepGenerator):
-    __slots__ = '_evaluator',
-    _evaluator: 'Evaluator'
-
-    def __init__(self, evaluator: 'Evaluator'):
-        self._evaluator = evaluator
-        super().__init__()
-
+class BestScoreGenerator(_evaluated.EvaluatedGenerator):
     def _pick_next_word(self, graph: 'Graph', node: 'Node') -> str:
         if node.value in node.transitions:
-            self._evaluator.remove_word(node, node.value)
             return node.value
         best_score: float = -1.0
         best_word: str | None = None
@@ -29,9 +20,4 @@ class BestScoreGenerator(_base.StepByStepGenerator):
             if score > best_score:
                 best_word = word
                 best_score = score
-        self._evaluator.remove_word(node, best_word)
         return best_word
-
-    def generate(self, graph: 'Graph') -> tuple[str]:
-        self._evaluator.prepare(graph)
-        return super().generate(graph)

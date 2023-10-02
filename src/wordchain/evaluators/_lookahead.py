@@ -86,17 +86,16 @@ class IntuitiveEvaluator(_base.Evaluator):
                 to_process.extend((distance + 1, predecessor) for predecessor in self._predecessors[node])
             current_index += 1
 
-    def remove_word(self, node: 'Node', word: str):
-        successor = node.transitions[word]
-        transitions_to_successor = self._transitions_to_successor[node]
-        transitions_to_successor[successor] -= 1
-        if transitions_to_successor[successor] > 0:
+    def remove_transition(self, prefix_node: 'Node', word: str, suffix_node: 'Node'):
+        transitions_to_successor = self._transitions_to_successor[prefix_node]
+        transitions_to_successor[suffix_node] -= 1
+        if transitions_to_successor[suffix_node] > 0:
             # successor is still reachable via another word
-            for distance, predecessor in self._iter_nodes_to_update(node):
+            for distance, predecessor in self._iter_nodes_to_update(prefix_node):
                 self._transitions_at_depth[predecessor][distance + 1] -= 1
         else:
             # successor is no longer reachable
-            successor_transitions = self._transitions_at_depth[successor]
-            for distance, predecessor in self._iter_nodes_to_update(node):
+            successor_transitions = self._transitions_at_depth[suffix_node]
+            for distance, predecessor in self._iter_nodes_to_update(prefix_node):
                 self._remove_unreachable_transition_counts(predecessor, distance + 1, successor_transitions)
-            self._predecessors[successor].remove(node)
+            self._predecessors[suffix_node].remove(prefix_node)

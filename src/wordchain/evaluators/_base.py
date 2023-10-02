@@ -11,5 +11,5 @@ class Evaluator:
     def get_score(self, node: 'Node') -> float | int:
         raise NotImplementedError
 
-    def remove_word(self, node: 'Node', word: str):
+    def remove_transition(self, prefix_node: 'Node', word: str, suffix_node: 'Node'):
         return
