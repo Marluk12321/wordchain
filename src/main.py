@@ -36,15 +36,15 @@ def main(args: list[str]):
     print(f'Finished in {end_time - start_time}s\n'
           f'Chain length: {len(chain)}', end='\n\n')
 
-    while True:
-        match input('Display words from chain? (y/n): ').strip().lower():
-            case 'y':
-                print('\n'.join(chain))
-                break
-            case 'n':
-                break
-            case _:
-                continue
+    # while True:
+    #     match input('Display words from chain? (y/n): ').strip().lower():
+    #         case 'y':
+    #             print('\n'.join(chain))
+    #             break
+    #         case 'n':
+    #             break
+    #         case _:
+    #             continue
 
 
 if __name__ == '__main__':
