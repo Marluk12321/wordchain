@@ -15,7 +15,7 @@ class LookaheadEvaluator(_base.Evaluator):
     _score_at_depth: dict['Node', dict[int, int]]  # node -> depth -> transition_count
     _score: dict['Node', int | float]  # node -> score
     _predecessors: dict['Node', set['Node']]  # node -> predecessors
-    _transitions_to_successor: dict['Node', dict['Node', int]]  # node -> successor -> transition_count
+    _transitions_between: dict[tuple['Node', 'Node'], int]  # (prefix, suffix) -> transition_count
 
     def __init__(self, leaf_evaluator: _base.Evaluator, lookahead_depth: int = 1):
         if lookahead_depth < 1:
@@ -28,7 +28,7 @@ class LookaheadEvaluator(_base.Evaluator):
         self._score_at_depth = collections.defaultdict(lambda: collections.defaultdict(int))
         self._score = {}
         self._predecessors = collections.defaultdict(set)
-        self._transitions_to_successor = collections.defaultdict(lambda: collections.defaultdict(int))
+        self._transitions_between = collections.defaultdict(int)
 
     def _calculate_score_at(self, node: 'Node', depth: int) -> int:
         scores = self._score_at_depth[node]
@@ -54,10 +54,10 @@ class LookaheadEvaluator(_base.Evaluator):
     def _populate_caches(self, graph: 'Graph'):
         for node in graph.start.transitions.values():
             self._predecessors[node].add(graph.start)
-            self._transitions_to_successor[graph.start][node] += 1
+            self._transitions_between[graph.start, node] += 1
             for successor in node.transitions.values():
                 self._predecessors[successor].add(node)
-                self._transitions_to_successor[node][successor] += 1
+                self._transitions_between[node, successor] += 1
             self._calculate_score_at(node, self._lookahead_depth)
             self._calculate_score(node)
         self._score[graph.end] = 0
@@ -94,9 +94,8 @@ class LookaheadEvaluator(_base.Evaluator):
         prefix_scores = self._score_at_depth[prefix_node]
         prefix_score_diff = prefix_scores[1] - new_prefix_score
 
-        transitions_to_successor = self._transitions_to_successor[prefix_node]
-        transitions_to_successor[suffix_node] -= 1
-        if transitions_to_successor[suffix_node] > 0:
+        self._transitions_between[prefix_node, suffix_node] -= 1
+        if self._transitions_between[prefix_node, suffix_node] > 0:
             # suffix is still reachable via another word
             for distance, predecessor in self._iter_nodes_to_update(prefix_node):
                 self._score_at_depth[predecessor][distance + 1] -= prefix_score_diff
