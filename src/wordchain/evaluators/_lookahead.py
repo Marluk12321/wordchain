@@ -7,44 +7,46 @@ if TYPE_CHECKING:
     from ..graph import Graph, Node
 
 
-class IntuitiveEvaluator(_base.Evaluator):
-    __slots__ = ('_lookahead_depth', '_transitions_at_depth', '_score',
-                 '_predecessors', '_transitions_to_successor')
+class LookaheadEvaluator(_base.Evaluator):
+    __slots__ = ('_leaf_evaluator', '_lookahead_depth', '_score_at_depth', '_score',
+                 '_predecessors', '_transitions_between')
+    _leaf_evaluator: _base.Evaluator
     _lookahead_depth: int
-    _transitions_at_depth: dict['Node', dict[int, int]]  # node -> depth -> transition_count
-    _score: dict['Node', int]  # node -> score
+    _score_at_depth: dict['Node', dict[int, int]]  # node -> depth -> transition_count
+    _score: dict['Node', int | float]  # node -> score
     _predecessors: dict['Node', set['Node']]  # node -> predecessors
     _transitions_to_successor: dict['Node', dict['Node', int]]  # node -> successor -> transition_count
 
-    def __init__(self, lookahead_depth: int = 1):
+    def __init__(self, leaf_evaluator: _base.Evaluator, lookahead_depth: int = 1):
         if lookahead_depth < 1:
             raise ValueError(f'lookahead_depth needs to be > 0, got {lookahead_depth}')
+        self._leaf_evaluator = leaf_evaluator
         self._lookahead_depth = lookahead_depth
         super().__init__()
 
     def _init_caches(self):
-        self._transitions_at_depth = collections.defaultdict(lambda: collections.defaultdict(int))
+        self._score_at_depth = collections.defaultdict(lambda: collections.defaultdict(int))
         self._score = {}
         self._predecessors = collections.defaultdict(set)
         self._transitions_to_successor = collections.defaultdict(lambda: collections.defaultdict(int))
 
-    def _calculate_transition_count(self, node: 'Node', depth: int) -> int:
-        transition_counts = self._transitions_at_depth[node]
-        transition_count = transition_counts.get(depth)
-        if transition_count is None:
+    def _calculate_score_at(self, node: 'Node', depth: int) -> int:
+        scores = self._score_at_depth[node]
+        score = scores.get(depth)
+        if score is None:
             if depth == 1:
-                transition_count = len(node.transitions)
+                score = self._leaf_evaluator.get_score(node)
             else:
                 unique_successors = frozenset(node.transitions.values())
-                transition_count = sum(self._calculate_transition_count(next_node, depth - 1)
-                                       for next_node in unique_successors)
-            transition_counts[depth] = transition_count
-        return transition_count
+                score = sum(self._calculate_score_at(next_node, depth - 1)
+                            for next_node in unique_successors)
+            scores[depth] = score
+        return score
 
     def _calculate_score(self, node: 'Node'):
-        transition_counts = self._transitions_at_depth[node]
+        scores = self._score_at_depth[node]
         score = 0
-        for depth, count in transition_counts.items():
+        for depth, count in scores.items():
             if count > 0:
                 score = depth * count
         self._score[node] = score
@@ -56,25 +58,17 @@ class IntuitiveEvaluator(_base.Evaluator):
             for successor in node.transitions.values():
                 self._predecessors[successor].add(node)
                 self._transitions_to_successor[node][successor] += 1
-            self._calculate_transition_count(node, self._lookahead_depth)
+            self._calculate_score_at(node, self._lookahead_depth)
             self._calculate_score(node)
         self._score[graph.end] = 0
 
     def prepare(self, graph: 'Graph'):
         self._init_caches()
+        self._leaf_evaluator.prepare(graph)
         self._populate_caches(graph)
 
     def get_score(self, node: 'Node') -> float | int:
         return self._score[node]
-
-    def _remove_unreachable_transition_counts(self, node: 'Node', unreachable_depth: int,
-                                              unreachable_transitions: dict[int, int]):
-        node_counts = self._transitions_at_depth[node]
-        node_counts[unreachable_depth] -= 1
-        for further_depth in range(unreachable_depth + 1, self._lookahead_depth + 1):
-            relative_depth = further_depth - unreachable_depth
-            node_counts[further_depth] -= unreachable_transitions[relative_depth]
-        self._calculate_score(node)
 
     def _iter_nodes_to_update(self, node: 'Node') -> Iterable[tuple[int, 'Node']]:
         to_process: list[tuple[int, 'Node']] = [(0, node)]
@@ -86,16 +80,31 @@ class IntuitiveEvaluator(_base.Evaluator):
                 to_process.extend((distance + 1, predecessor) for predecessor in self._predecessors[node])
             current_index += 1
 
+    def _remove_unreachable_scores(self, node: 'Node', unreachable_depth: int,
+                                   unreachable_scores: dict[int, int]):
+        scores = self._score_at_depth[node]
+        for depth in range(unreachable_depth, self._lookahead_depth + 1):
+            relative_depth = depth - unreachable_depth
+            scores[depth] -= unreachable_scores[relative_depth]
+        self._calculate_score(node)
+
     def remove_transition(self, prefix_node: 'Node', word: str, suffix_node: 'Node'):
+        self._leaf_evaluator.remove_transition(prefix_node, word, suffix_node)
+        new_prefix_score = self._leaf_evaluator.get_score(prefix_node)
+        prefix_scores = self._score_at_depth[prefix_node]
+        prefix_score_diff = prefix_scores[1] - new_prefix_score
+
         transitions_to_successor = self._transitions_to_successor[prefix_node]
         transitions_to_successor[suffix_node] -= 1
         if transitions_to_successor[suffix_node] > 0:
-            # successor is still reachable via another word
+            # suffix is still reachable via another word
             for distance, predecessor in self._iter_nodes_to_update(prefix_node):
-                self._transitions_at_depth[predecessor][distance + 1] -= 1
+                self._score_at_depth[predecessor][distance + 1] -= prefix_score_diff
         else:
-            # successor is no longer reachable
-            successor_transitions = self._transitions_at_depth[suffix_node]
+            # suffix is no longer reachable
+            unreachable_scores = {0: prefix_score_diff}
+            suffix_scores = self._score_at_depth[suffix_node]
+            unreachable_scores.update(suffix_scores)
             for distance, predecessor in self._iter_nodes_to_update(prefix_node):
-                self._remove_unreachable_transition_counts(predecessor, distance + 1, successor_transitions)
+                self._remove_unreachable_scores(predecessor, distance + 1, suffix_scores)
             self._predecessors[suffix_node].remove(prefix_node)
